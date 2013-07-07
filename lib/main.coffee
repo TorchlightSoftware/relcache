@@ -1,6 +1,8 @@
+comparitors = require './comparitors'
 {EventEmitter} = require 'events'
 {getType, hasKeys, removeAt} = require 'torch'
 _ = require 'lodash'
+logger = require 'ale'
 
 # private API
 cache = {}
@@ -31,6 +33,20 @@ class Cache extends EventEmitter
 
   get: (key, value) ->
     cache?[key]?[value] or []
+
+  query: (key, comparitor, target) ->
+    #logger.magenta {key, comparitor, target}
+    return [] unless cache?[key] and comparitors[comparitor]
+
+    results = []
+    for value, relations of cache[key]
+      #logger.blue {value, relations}
+      try
+        if comparitors[comparitor] value, target
+          results.push relations...
+
+    return results
+
 
   findOne: (key, value, search) ->
     relations = @get key, value

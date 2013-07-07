@@ -1,13 +1,14 @@
 {
   "name":"relcache",
   "description":"In memory cache for relationships.",
-  "version":"0.0.1",
+  "version":"0.0.2",
   "homepage":"http://github.com/TorchlightSoftware/relcache",
   "repository":"git://github.com/TorchlightSoftware/relcache.git",
   "author":"Torchlight Software <info@torchlightsoftware.com> (http://torchlightsoftware.com)",
   "main":"./index.js",
 
   "dependencies":{
+    "ale":"*",
     "torch":"*",
     "lodash":"*",
     "coffee-script":"*"
