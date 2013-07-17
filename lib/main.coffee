@@ -37,6 +37,16 @@ add = (stale, fresh) ->
       when 'Undefined', 'Null'
         stale[k] = v
 
+# used by 'remove', 'unset'
+remover = (relations, key, list) ->
+  target = relations[key]
+  target = [target] unless _.isArray target
+  target = _.without target, list...
+  if _.isEmpty target
+    delete relations[key]
+  else
+    relations[key] = target
+
 # public API
 class Cache extends EventEmitter
   import: (data) ->
@@ -64,20 +74,20 @@ class Cache extends EventEmitter
   _inject: (key, value, relation, setter) ->
     return unless key? and value? and _.isObject relation
 
-    run = (key, value, relation) =>
+    run = (key, value, relation, setter) =>
       cache[key] ?= {}
       cache[key][value] ?= {}
       setter cache[key][value], relation
       @emit 'set', {key, value, relation: cache[key][value]}
 
     # set direct relationships
-    run key, value, relation
+    run key, value, relation, setter
 
     # set reverse relationships
     reverseRel = {}
     reverseRel[key] = value
     for k, v of relation
-      run k, v, reverseRel
+      run k, v, reverseRel, add # always run reverse relations with add
 
   set: (key, value, relation) ->
     @_inject key, value, relation, _.merge
@@ -108,25 +118,17 @@ class Cache extends EventEmitter
       if _.isEmpty targets
         targets = _.keys relations
 
-      # walk through and unset all desired targets
+      # walk through and remove all reverse relations
       for t in targets
-        unsetter t, relations[t], [key]
+        revrel = @get t, relations[t]
+        @emit 'unset', {key: t, value: relations[t], target: key, list: [value]}
+        remover revrel, key, [value]
 
       # unset direct relation
       unsetter key, value, targets
 
-  # shitty single letter variables.  seppuku
   remove: (key, value, targets) ->
     return @unset key, value if _.isEmpty targets
-
-    remover = (relations, key, list) ->
-      target = relations[key]
-      target = [target] unless _.isArray target
-      target = _.without target, list...
-      if _.isEmpty target
-        delete relations[key]
-      else
-        relations[key] = target
 
     relations = @get key, value
     if relations?

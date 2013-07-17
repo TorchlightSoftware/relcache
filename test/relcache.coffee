@@ -13,19 +13,28 @@ describe 'Relations Cache', ->
     done()
 
   it 'should store and retrieve relation', (done) ->
-    relcache.set 'sessionId', 123, {accountId: 456}
+    relcache.set 'sessionId', 123, {name: 'Bob'}
     rels = relcache.get 'sessionId', 123
 
     rels.should.exist
-    rels.should.eql {accountId: 456}
+    rels.should.eql {name: 'Bob'}
     done()
 
   it 'should store and retrieve reverse relation', (done) ->
-    relcache.set 'sessionId', 123, {accountId: 456}
-    rels = relcache.get 'accountId', 456
+    relcache.set 'sessionId', 123, {name: 'Bob'}
+    rels = relcache.get 'name', 'Bob'
 
     rels.should.exist
-    rels.should.eql {sessionId: 123}
+    rels.should.eql {sessionId: [123]}
+    done()
+
+  it 'reverse relations should accumulate', (done) ->
+    relcache.set 'sessionId', 123, {name: 'Bob'}
+    relcache.set 'sessionId', 456, {name: 'Bob'}
+    rels = relcache.get 'name', 'Bob'
+
+    rels.should.exist
+    rels.should.eql {sessionId: [123, 456]}
     done()
 
   it 'should store and retrieve one to many relationship', (done) ->
@@ -136,6 +145,17 @@ describe 'Relations Cache', ->
     rels.should.eql {}
     done()
 
+  it 'should not unset non-related reverse relation', (done) ->
+    relcache.set 'sessionId', 789, {name: 'Bob'}
+    relcache.set 'sessionId', 123, {name: 'Bob'}
+    relcache.unset 'sessionId', 123, 'name'
+
+    rels = relcache.get 'name', 'Bob'
+
+    rels.should.exist
+    rels.should.eql {sessionId: [789]}
+    done()
+
   it 'should emit two set events', (done) ->
     relcache.once 'set', ({key, value, relation}) ->
       key.should.eql 'sessionId'
@@ -147,7 +167,7 @@ describe 'Relations Cache', ->
       relcache.once 'set', ({key, value, relation}) ->
         key.should.eql 'accountId'
         value.should.eql 456
-        relation.should.eql {sessionId: 123}
+        relation.should.eql {sessionId: [123]}
         current = relcache.get key, value
         current.should.eql relation
 
@@ -156,12 +176,13 @@ describe 'Relations Cache', ->
     relcache.set 'sessionId', 123, {accountId: 456}
 
   it 'should emit two unset events', (done) ->
-    relcache.once 'unset', ({key, value, targets}) ->
+    relcache.once 'unset', ({key, value, target, list}) ->
       key.should.eql 'accountId'
       value.should.eql 456
-      targets.should.eql ['sessionId']
+      target.should.eql 'sessionId'
+      list.should.eql [123]
       current = relcache.get key, value
-      current.should.eql {sessionId: 123}
+      current.should.eql {sessionId: [123]}
 
       relcache.once 'unset', ({key, value, targets}) ->
         key.should.eql 'sessionId'
