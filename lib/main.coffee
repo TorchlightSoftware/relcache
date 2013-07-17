@@ -47,7 +47,6 @@ class Cache extends EventEmitter
 
     return results
 
-
   findOne: (key, value, search) ->
     relations = @get key, value
     return relations[0] unless search?
@@ -58,28 +57,63 @@ class Cache extends EventEmitter
     return _.findIndex relations, (r) -> includes r, search
 
   set: (key, value, relation) ->
-    unless @findIndex(key, value, relation) > -1
-      cache[key] or= {}
-      cache[key][value] or= []
-      cache[key][value].push relation
-      notify @, 'set', {key, value, relation}
+
+    setter = (key, value, relation) =>
+      unless @findIndex(key, value, relation) > -1
+        cache[key] or= {}
+        cache[key][value] or= []
+        cache[key][value].push relation
+        notify @, 'set', {key, value, relation}
+
+    # set direct relationships
+    setter key, value, relation
+
+    # set reverse relationships
+    reverseRel = {}
+    reverseRel[key] = value
+    for k, v of relation
+      setter k, v, reverseRel
 
   unset: (key, value, relation) ->
+
+    unsetter = (key, value, relation) =>
+
+      relations = @get key, value
+      if relations?
+
+        # if no target relation was provided, delete them all
+        unless relation?
+          cache[key][value] = []
+          cleanup key, value
+          notify @, 'unset', {key, value, relation}
+
+        # otherwise look for the relation and delete it
+        else
+          index = @findIndex(key, value, relation)
+          if index > -1
+            removeAt relations, index
+            cleanup key, value
+            notify @, 'unset', {key, value, relation}
+
     relations = @get key, value
     if relations?
 
-      # if no target relation was provided, delete them all
-      unless relation?
-        cache[key][value] = []
-        cleanup key, value
-        notify @, 'unset', {key, value, relation}
+      # unset direct relation
+      unsetter key, value, relation
 
-      # otherwise look for the relation and delete it
+      # unset reverse relations
+      reverseRel = {}
+      reverseRel[key] = value
+
+      # are we unsetting all or a specific target?
+      if relation?
+        targets = [relation]
       else
-        index = @findIndex(key, value, relation)
-        if index > -1
-          removeAt relations, index
-          cleanup key, value
-          notify @, 'unset', {key, value, relation}
+        targets = relations
+
+      # walk through and unset all desired targets
+      for rel in targets
+        for k, v of rel
+          unsetter k, v, reverseRel
 
 module.exports = new Cache

@@ -20,6 +20,14 @@ describe 'Relations Cache', ->
     rels.should.eql [{accountId: 456}]
     done()
 
+  it 'should store and retrieve reverse relation', (done) ->
+    relcache.set 'sessionId', 123, {accountId: 456}
+    rels = relcache.get 'accountId', 456
+
+    rels.should.exist
+    rels.should.eql [{sessionId: 123}]
+    done()
+
   it 'should store and retrieve duplicate keys', (done) ->
     relcache.set 'sessionId', 123, {accountId: 456}
     relcache.set 'sessionId', 123, {accountId: 789}
@@ -46,12 +54,27 @@ describe 'Relations Cache', ->
 
   it 'should unset all relations', (done) ->
     relcache.set 'sessionId', 123, {accountId: 456}
+    relcache.set 'sessionId', 123, {accountId: 789}
     relcache.unset 'sessionId', 123
     rels = relcache.get 'sessionId', 123
 
     rels.should.exist
     rels.should.be.an.instanceof Array
     rels.should.be.empty
+    done()
+
+  it 'should unset all reverse relations', (done) ->
+    relcache.set 'sessionId', 123, {accountId: 456}
+    relcache.set 'sessionId', 123, {accountId: 789}
+    relcache.unset 'sessionId', 123
+
+    r1 = relcache.get 'accountId', 456
+    r2 = relcache.get 'accountId', 456
+
+    for r in [r1, r2]
+      r.should.exist
+      r.should.be.an.instanceof Array
+      r.should.be.empty
     done()
 
   it 'should unset target relation', (done) ->
@@ -62,6 +85,16 @@ describe 'Relations Cache', ->
 
     rels.should.exist
     rels.should.eql [{accountId: 789}]
+    done()
+
+  it 'should unset reverse relations', (done) ->
+    relcache.set 'sessionId', 123, {accountId: 456}
+    relcache.set 'sessionId', 123, {accountId: 789}
+    relcache.unset 'sessionId', 123, {accountId: 456}
+    rels = relcache.get 'accountId', 456
+
+    rels.should.exist
+    rels.should.eql []
     done()
 
   it 'should find a key', (done) ->
