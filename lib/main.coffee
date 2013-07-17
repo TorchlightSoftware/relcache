@@ -13,15 +13,29 @@ includes = (rel, search) ->
     return false unless _.isEqual rel[k], v
   return true
 
-notify = (emitter, message, event) ->
-  process.nextTick ->
-    emitter.emit message, event
-
+# used by 'unset' and 'remove'
 cleanup = (key, value) ->
   if cache[key][value].length is 0
     delete cache[key][value]
     if _.keys(cache[key]).length is 0
       delete cache[key]
+
+# used by 'add'
+add = (stale, fresh) ->
+  for k, v of fresh
+
+    # make the input into a set
+    if getType(v) is 'Array'
+      v = _.uniq v
+    else
+      v = [v]
+
+    # store new set or union
+    switch getType(stale[k])
+      when 'Array'
+        stale[k] = _.union stale[k], v
+      when 'Undefined', 'Null'
+        stale[k] = v
 
 # public API
 class Cache extends EventEmitter
@@ -32,88 +46,104 @@ class Cache extends EventEmitter
     cache = {}
 
   get: (key, value) ->
-    cache?[key]?[value] or []
+    cache?[key]?[value] or {}
 
-  query: (key, comparitor, target) ->
+  find: (key, comparitor, target) ->
     #logger.magenta {key, comparitor, target}
     return [] unless cache?[key] and comparitors[comparitor]
 
     results = []
     for value, relations of cache[key]
-      #logger.blue {value, relations}
       try
         if comparitors[comparitor] value, target
-          results.push relations...
+          results.push relations
 
     return results
 
-  findOne: (key, value, search) ->
-    relations = @get key, value
-    return relations[0] unless search?
-    return _.find relations, (r) -> includes r, search
+  # used by 'set' and 'add'
+  _inject: (key, value, relation, setter) ->
+    return unless key? and value? and _.isObject relation
 
-  findIndex: (key, value, search) ->
-    relations = @get key, value
-    return _.findIndex relations, (r) -> includes r, search
-
-  set: (key, value, relation) ->
-
-    setter = (key, value, relation) =>
-      unless @findIndex(key, value, relation) > -1
-        cache[key] or= {}
-        cache[key][value] or= []
-        cache[key][value].push relation
-        notify @, 'set', {key, value, relation}
+    run = (key, value, relation) =>
+      cache[key] ?= {}
+      cache[key][value] ?= {}
+      setter cache[key][value], relation
+      @emit 'set', {key, value, relation: cache[key][value]}
 
     # set direct relationships
-    setter key, value, relation
+    run key, value, relation
 
     # set reverse relationships
     reverseRel = {}
     reverseRel[key] = value
     for k, v of relation
-      setter k, v, reverseRel
+      run k, v, reverseRel
 
-  unset: (key, value, relation) ->
+  set: (key, value, relation) ->
+    @_inject key, value, relation, _.merge
 
-    unsetter = (key, value, relation) =>
+  add: (key, value, relation) ->
+    @_inject key, value, relation, add
 
-      relations = @get key, value
-      if relations?
+  unset: (key, value, targets) ->
 
-        # if no target relation was provided, delete them all
-        unless relation?
-          cache[key][value] = []
-          cleanup key, value
-          notify @, 'unset', {key, value, relation}
+    # reformat alternate input types for targets
+    switch getType(targets)
+      when 'Array'
+        targets
+      when 'Undefined', 'Null'
+        targets = []
+      else
+        targets = [targets]
 
-        # otherwise look for the relation and delete it
-        else
-          index = @findIndex(key, value, relation)
-          if index > -1
-            removeAt relations, index
-            cleanup key, value
-            notify @, 'unset', {key, value, relation}
+    unsetter = (key, value, targets) =>
+      @emit 'unset', {key, value, targets}
+      for t in targets
+        delete cache[key][value][t]
+      cleanup key, value
 
     relations = @get key, value
     if relations?
 
-      # unset direct relation
-      unsetter key, value, relation
-
-      # unset reverse relations
-      reverseRel = {}
-      reverseRel[key] = value
-
-      # are we unsetting all or a specific target?
-      if relation?
-        targets = [relation]
-      else
-        targets = relations
+      if _.isEmpty targets
+        targets = _.keys relations
 
       # walk through and unset all desired targets
-      for rel in targets
-        for k, v of rel
-          unsetter k, v, reverseRel
+      for t in targets
+        unsetter t, relations[t], [key]
+
+      # unset direct relation
+      unsetter key, value, targets
+
+  # shitty single letter variables.  seppuku
+  remove: (key, value, targets) ->
+    return @unset key, value if _.isEmpty targets
+
+    remover = (relations, key, list) ->
+      target = relations[key]
+      target = [target] unless _.isArray target
+      target = _.without target, list...
+      if _.isEmpty target
+        delete relations[key]
+      else
+        relations[key] = target
+
+    relations = @get key, value
+    if relations?
+
+      for tkey, tlist of targets
+        tlist = [tlist] unless _.isArray tlist
+
+        for titem in tlist
+
+          # remove reverse lookups
+          trel = @get tkey, titem
+          if trel?
+            @emit 'unset', {key: tkey, value: titem, target: key, list: [value]}
+            remover trel, key, [value]
+
+        # remove direct lookups
+        @emit 'unset', {key, value, target: tkey, list: tlist}
+        remover relations, tkey, tlist
 
 module.exports = new Cache
