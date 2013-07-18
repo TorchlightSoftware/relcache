@@ -1,6 +1,8 @@
 should = require 'should'
-relcache = require '..'
 logger = require 'ale'
+
+Relcache = require '..'
+relcache = new Relcache
 
 describe 'Relations Cache', ->
   beforeEach ->

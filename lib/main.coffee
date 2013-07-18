@@ -5,28 +5,26 @@ logger = require 'ale'
 
 comparitors = require './comparitors'
 
-# private API
-cache = {}
-
-# public API
 class Cache extends EventEmitter
+
+  _cache: {}
 
   # ================================================================
   # UTILITY
   # ================================================================
 
   import: (data) ->
-    _.merge cache, data
+    _.merge @_cache, data
 
   clear: ->
-    cache = {}
+    @_cache = {}
 
   # ================================================================
   # QUERY
   # ================================================================
 
   get: (key, value, names) ->
-    rels = cache[key]?[value] or {}
+    rels = @_cache[key]?[value] or {}
     unless _.isEmpty names
       names = box names
       return _.pick rels, names...
@@ -34,13 +32,13 @@ class Cache extends EventEmitter
       return rels
 
   find: (key, comparitor, target) ->
-    return [] unless cache[key] and comparitors[comparitor]
+    return [] unless @_cache[key] and comparitors[comparitor]
 
-    results = []
-    for value, relations of cache[key]
+    results = {}
+    for value, relations of @_cache[key]
       try
         if comparitors[comparitor] value, target
-          results.push relations
+          @_add results, relations
 
     return results
 
@@ -70,10 +68,10 @@ class Cache extends EventEmitter
     _.union box(l), box(r)
 
   _adder: (key, value, relation, method) ->
-    cache[key] ?= {}
-    cache[key][value] ?= {}
+    @_cache[key] ?= {}
+    @_cache[key][value] ?= {}
 
-    method cache[key][value], relation
+    method @_cache[key][value], relation
     @emit 'add', {key, value, relation}
 
   # ================================================================
@@ -117,7 +115,7 @@ class Cache extends EventEmitter
         delete relation[tkey] if _.isEmpty relation[tkey]
 
   _remover: (key, value, targets, method) ->
-    relation = cache[key]?[value]
+    relation = @_cache[key]?[value]
     targets ?= relation
 
     if relation?
@@ -125,8 +123,8 @@ class Cache extends EventEmitter
       method relation, targets
 
       if _.isEmpty relation
-        delete cache[key][value]
-        if _.isEmpty cache[key]
-          delete cache[key]
+        delete @_cache[key][value]
+        if _.isEmpty @_cache[key]
+          delete @_cache[key]
 
-module.exports = new Cache
+module.exports = Cache

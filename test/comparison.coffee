@@ -1,5 +1,7 @@
 should = require 'should'
-relcache = require '..'
+
+Relcache = require '..'
+relcache = new Relcache
 
 describe 'Find Comparison', ->
   beforeEach ->
@@ -13,7 +15,7 @@ describe 'Find Comparison', ->
         ['count', 1, {_id: 5}]
       ]
       query: ['count', 'eq', 5]
-      expected: [{_id: 3}]
+      expected: {_id: [3]}
     ,
       description: 'ne should work'
       cache: [
@@ -22,7 +24,7 @@ describe 'Find Comparison', ->
         ['count', 1, {_id: 5}]
       ]
       query: ['count', 'ne', 5]
-      expected: [{_id: 4}, {_id: 5}]
+      expected: {_id: [4, 5]}
     ,
       description: 'gte should work'
       cache: [
@@ -31,7 +33,7 @@ describe 'Find Comparison', ->
         ['count', 1, {_id: 5}]
       ]
       query: ['count', 'gte', 5]
-      expected: [{_id: 3}]
+      expected: {_id: [3]}
     ,
       description: 'gt should work'
       cache: [
@@ -40,7 +42,7 @@ describe 'Find Comparison', ->
         ['count', 1, {_id: 5}]
       ]
       query: ['count', 'gt', 0]
-      expected: [{_id: 5}, {_id: 3}]
+      expected: {_id: [5, 3]}
     ,
       description: 'lte should work'
       cache: [
@@ -49,7 +51,7 @@ describe 'Find Comparison', ->
         ['count', 1, {_id: 5}]
       ]
       query: ['count', 'lte', 1]
-      expected: [{_id: 4}, {_id: 5}]
+      expected: {_id: [4, 5]}
     ,
       description: 'lt should work'
       cache: [
@@ -58,7 +60,7 @@ describe 'Find Comparison', ->
         ['count', 1, {_id: 5}]
       ]
       query: ['count', 'lt', 1]
-      expected: [{_id: 4}]
+      expected: {_id: [4]}
     ,
       # anything other than strings in the array will not work!
       description: 'all should work'
@@ -68,7 +70,7 @@ describe 'Find Comparison', ->
         ['arr', ['7', '8'], {_id: 6}]
       ]
       query: ['arr', 'all', ['1', '2']]
-      expected: [{_id: 3}]
+      expected: {_id: [3]}
   ]
 
   for test in tests
