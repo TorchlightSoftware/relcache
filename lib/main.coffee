@@ -1,66 +1,40 @@
-comparitors = require './comparitors'
 {EventEmitter} = require 'events'
-{getType, hasKeys, removeAt} = require 'torch'
+{getType, box, kvp} = require 'torch'
 _ = require 'lodash'
 logger = require 'ale'
+
+comparitors = require './comparitors'
 
 # private API
 cache = {}
 
-includes = (rel, search) ->
-  for k, v of search
-    return false unless rel[k]?
-    return false unless _.isEqual rel[k], v
-  return true
-
-# used by 'unset' and 'remove'
-cleanup = (key, value) ->
-  if cache[key][value].length is 0
-    delete cache[key][value]
-    if _.keys(cache[key]).length is 0
-      delete cache[key]
-
-# used by 'add'
-add = (stale, fresh) ->
-  for k, v of fresh
-
-    # make the input into a set
-    if getType(v) is 'Array'
-      v = _.uniq v
-    else
-      v = [v]
-
-    # store new set or union
-    switch getType(stale[k])
-      when 'Array'
-        stale[k] = _.union stale[k], v
-      when 'Undefined', 'Null'
-        stale[k] = v
-
-# used by 'remove', 'unset'
-remover = (relations, key, list) ->
-  target = relations[key]
-  target = [target] unless _.isArray target
-  target = _.without target, list...
-  if _.isEmpty target
-    delete relations[key]
-  else
-    relations[key] = target
-
 # public API
 class Cache extends EventEmitter
+
+  # ================================================================
+  # UTILITY
+  # ================================================================
+
   import: (data) ->
     _.merge cache, data
 
   clear: ->
     cache = {}
 
-  get: (key, value) ->
-    cache?[key]?[value] or {}
+  # ================================================================
+  # QUERY
+  # ================================================================
+
+  get: (key, value, names) ->
+    rels = cache[key]?[value] or {}
+    unless _.isEmpty names
+      names = box names
+      return _.pick rels, names...
+    else
+      return rels
 
   find: (key, comparitor, target) ->
-    #logger.magenta {key, comparitor, target}
-    return [] unless cache?[key] and comparitors[comparitor]
+    return [] unless cache[key] and comparitors[comparitor]
 
     results = []
     for value, relations of cache[key]
@@ -70,82 +44,89 @@ class Cache extends EventEmitter
 
     return results
 
-  # used by 'set' and 'add'
-  _inject: (key, value, relation, setter) ->
-    return unless key? and value? and _.isObject relation
-
-    run = (key, value, relation, setter) =>
-      cache[key] ?= {}
-      cache[key][value] ?= {}
-      setter cache[key][value], relation
-      @emit 'set', {key, value, relation: cache[key][value]}
-
-    # set direct relationships
-    run key, value, relation, setter
-
-    # set reverse relationships
-    reverseRel = {}
-    reverseRel[key] = value
-    for k, v of relation
-      run k, v, reverseRel, add # always run reverse relations with add
+  # ================================================================
+  # ADDITION
+  # ================================================================
 
   set: (key, value, relation) ->
-    @_inject key, value, relation, _.merge
+
+    # find the values we're overriding and unset them
+    existing = @get key, value
+    old = _.intersection _.keys(existing), _.keys(relation)
+    @unset key, value, old unless _.isEmpty old
+
+    @_adder key, value, relation, _.merge
+
+    for k, v of relation
+      @_adder k, v, kvp(key, value), @_add
 
   add: (key, value, relation) ->
-    @_inject key, value, relation, add
+    @_adder key, value, relation, @_add
+
+    for k, v of relation
+      @_adder k, v, kvp(key, value), @_add
+
+  _add: _.partialRight _.merge, (l, r) ->
+    _.union box(l), box(r)
+
+  _adder: (key, value, relation, method) ->
+    cache[key] ?= {}
+    cache[key][value] ?= {}
+
+    method cache[key][value], relation
+    @emit 'add', {key, value, relation}
+
+  # ================================================================
+  # REMOVAL
+  # ================================================================
 
   unset: (key, value, targets) ->
+    # turn args into appropriate values for helpers
+    if targets
+      targets = box targets
+      tObj = @_toObjKeys(targets)
 
-    # reformat alternate input types for targets
-    switch getType(targets)
-      when 'Array'
-        targets
-      when 'Undefined', 'Null'
-        targets = []
-      else
-        targets = [targets]
+    rels = @get key, value, targets
+    for k, v of rels
+      @_remover k, v, kvp(key, value), @_remove
 
-    unsetter = (key, value, targets) =>
-      @emit 'unset', {key, value, targets}
-      for t in targets
-        delete cache[key][value][t]
-      cleanup key, value
-
-    relations = @get key, value
-    if relations?
-
-      if _.isEmpty targets
-        targets = _.keys relations
-
-      # walk through and remove all reverse relations
-      for t in targets
-        revrel = @get t, relations[t]
-        @emit 'unset', {key: t, value: relations[t], target: key, list: [value]}
-        remover revrel, key, [value]
-
-      # unset direct relation
-      unsetter key, value, targets
+    @_remover key, value, tObj, @_unset
 
   remove: (key, value, targets) ->
-    return @unset key, value if _.isEmpty targets
+    rels = @get key, value, _.keys(targets)
+    for k, v of rels
+      @_remover k, v, kvp(key, value), @_remove
 
-    relations = @get key, value
-    if relations?
+    @_remover key, value, targets, @_remove
 
-      for tkey, tlist of targets
-        tlist = [tlist] unless _.isArray tlist
+  _toObjKeys: (list) ->
+    if _.isArray list
+      _.object _.zip list
+    else
+      list
 
-        for titem in tlist
+  _unset: (relation, targets) ->
+    for k of targets
+      delete relation[k]
 
-          # remove reverse lookups
-          trel = @get tkey, titem
-          if trel?
-            @emit 'unset', {key: tkey, value: titem, target: key, list: [value]}
-            remover trel, key, [value]
+  _remove: (relation, targets) ->
+    for tkey, tlist of targets
+      tlist = box tlist
+      if relation[tkey]
+        relation[tkey] = _.without relation[tkey], tlist...
+        delete relation[tkey] if _.isEmpty relation[tkey]
 
-        # remove direct lookups
-        @emit 'unset', {key, value, target: tkey, list: tlist}
-        remover relations, tkey, tlist
+  _remover: (key, value, targets, method) ->
+    relation = cache[key]?[value]
+    targets ?= relation
+
+    if relation?
+      @emit 'remove', {key, value, targets}
+      method relation, targets
+
+      if _.isEmpty relation
+        delete cache[key][value]
+        if _.isEmpty cache[key]
+          delete cache[key]
 
 module.exports = new Cache

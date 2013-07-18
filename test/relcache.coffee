@@ -156,38 +156,50 @@ describe 'Relations Cache', ->
     rels.should.eql {sessionId: [789]}
     done()
 
-  it 'should emit two set events', (done) ->
-    relcache.once 'set', ({key, value, relation}) ->
+  it 'when set overrides a value it should update the reverse relation', (done) ->
+    relcache.set 'sessionId', 123, {name: 'Bob'}
+    relcache.set 'sessionId', 123, {name: 'Bobby'}
+
+    rels = relcache.get 'name', 'Bob'
+    rels.should.exist
+    rels.should.eql {}
+
+    rels = relcache.get 'name', 'Bobby'
+    rels.should.exist
+    rels.should.eql {sessionId: [123]}
+    done()
+
+  it 'set should emit two add events', (done) ->
+    relcache.once 'add', ({key, value, relation}) ->
       key.should.eql 'sessionId'
       value.should.eql 123
       relation.should.eql {accountId: 456}
       current = relcache.get key, value
       current.should.eql relation
 
-      relcache.once 'set', ({key, value, relation}) ->
+      relcache.once 'add', ({key, value, relation}) ->
         key.should.eql 'accountId'
         value.should.eql 456
-        relation.should.eql {sessionId: [123]}
+        relation.should.eql {sessionId: 123}
         current = relcache.get key, value
-        current.should.eql relation
+        current.should.eql {sessionId: [123]}
 
         done()
 
     relcache.set 'sessionId', 123, {accountId: 456}
 
-  it 'should emit two unset events', (done) ->
-    relcache.once 'unset', ({key, value, target, list}) ->
+  it 'should emit two remove events', (done) ->
+    relcache.once 'remove', ({key, value, targets}) ->
       key.should.eql 'accountId'
       value.should.eql 456
-      target.should.eql 'sessionId'
-      list.should.eql [123]
+      targets.should.eql {sessionId: 123}
       current = relcache.get key, value
       current.should.eql {sessionId: [123]}
 
-      relcache.once 'unset', ({key, value, targets}) ->
+      relcache.once 'remove', ({key, value, targets}) ->
         key.should.eql 'sessionId'
         value.should.eql 123
-        targets.should.eql ['accountId']
+        targets.should.eql {accountId: 456}
         current = relcache.get key, value
         current.should.eql {accountId: 456}
 
@@ -197,19 +209,17 @@ describe 'Relations Cache', ->
     relcache.unset 'sessionId', 123
 
   it 'remove should emit two unset events', (done) ->
-    relcache.once 'unset', ({key, value, target, list}) ->
+    relcache.once 'remove', ({key, value, targets}) ->
       key.should.eql 'sessionId'
-      value.should.eql 789
-      target.should.eql 'accountId'
-      list.should.eql [123]
+      value.should.eql [789]
+      targets.should.eql {accountId: 123}
       current = relcache.get key, value
       current.should.eql {accountId: [123]}
 
-      relcache.once 'unset', ({key, value, target, list}) ->
+      relcache.once 'remove', ({key, value, targets}) ->
         key.should.eql 'accountId'
         value.should.eql 123
-        target.should.eql 'sessionId'
-        list.should.eql [789]
+        targets.should.eql {sessionId: 789}
         current = relcache.get key, value
         current.should.eql {sessionId: [789]}
 

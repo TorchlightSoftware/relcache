@@ -2,14 +2,27 @@
 
 A cache for relationships so you don't have to round trip to the DB in order to look them up.  A simpler implementation and interface than an all out graph database.
 
+Relationships will be stored bi-directionally, and can be searched with a query interface based on MongoDB.
+
 ## Usage
 
-```coffee-script
-relcache.set "userId", 5, {accountId: 1}
-relcache.set "userId", 5, {userId: 8, type: 'friend'}
+Use 'set' to create many-1 relationships.  For instance, between user._id and user.name:
 
-relcache.get "userId", 5            # [{accountId: 1}, {userId: 8, type: 'friend'}]
-relcache.get "userId", 5, 'friend'  # {userId: 8, type: 'friend'}
+```coffee-script
+relcache.set "user._id", 5, {name: 'Fred', email: 'fred@foo.com'}
+
+relcache.get "user._id", 5                  # {name: 'Fred', email: 'fred@foo.com'}
+relcache.get "user.name", 'Fred'            # {user._id: [5]}
+relcache.get "user.email", 'fred@foo.com'   # {user._id: [5]}
+```
+
+The reverse relationships will always store and be returned as arrays.  Say you have two users with the same name:
+
+```coffee-script
+relcache.set "user._id", 5, {name: 'Fred'}
+relcache.set "user._id", 7, {name: 'Fred'}
+
+relcache.get "user.name", 'Fred' # {user._id: [5, 7]}
 ```
 
 ## LICENSE
