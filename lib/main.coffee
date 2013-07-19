@@ -25,9 +25,11 @@ class Cache extends EventEmitter
 
   get: (key, value, names) ->
     rels = @_cache[key]?[value] or {}
-    unless _.isEmpty names
+    if _.isArray names
       names = box names
       return _.pick rels, names...
+    else if names?
+      return rels[names]
     else
       return rels
 

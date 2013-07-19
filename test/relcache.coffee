@@ -22,6 +22,22 @@ describe 'Relations Cache', ->
     rels.should.eql {name: 'Bob'}
     done()
 
+  it 'should get specific field', (done) ->
+    relcache.set 'sessionId', 123, {name: 'Bob'}
+    rels = relcache.get 'sessionId', 123, 'name'
+
+    rels.should.exist
+    rels.should.eql 'Bob'
+    done()
+
+  it 'should get multiple fields', (done) ->
+    relcache.set 'sessionId', 123, {name: 'Bob', email: 'bob@foo.com', loginCount: 5}
+    rels = relcache.get 'sessionId', 123, ['name', 'email']
+
+    rels.should.exist
+    rels.should.eql {name: 'Bob', email: 'bob@foo.com'}
+    done()
+
   it 'should store and retrieve reverse relation', (done) ->
     relcache.set 'sessionId', 123, {name: 'Bob'}
     rels = relcache.get 'name', 'Bob'
