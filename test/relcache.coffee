@@ -30,6 +30,22 @@ describe 'Relations Cache', ->
     rels.should.eql 'Bob'
     done()
 
+  it 'should get a listing of values', (done) ->
+    relcache.set 'sessionId', 123, {name: 'Bob'}
+    relcache.set 'sessionId', 456, {name: 'Jane'}
+    rels = relcache.get 'sessionId'
+
+    rels.should.exist
+    rels.should.eql ['123', '456']
+    done()
+
+  it 'should return an empty listing', (done) ->
+    rels = relcache.get 'sessionId'
+
+    rels.should.exist
+    rels.should.eql []
+    done()
+
   it 'should get multiple fields', (done) ->
     relcache.set 'sessionId', 123, {name: 'Bob', email: 'bob@foo.com', loginCount: 5}
     rels = relcache.get 'sessionId', 123, ['name', 'email']

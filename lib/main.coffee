@@ -24,6 +24,9 @@ class Cache extends EventEmitter
   # ================================================================
 
   get: (key, value, names) ->
+    if value is undefined and names is undefined
+      return _.keys @_cache[key]
+
     rels = @_cache[key]?[value] or {}
     if _.isArray names
       names = box names
