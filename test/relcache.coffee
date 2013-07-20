@@ -46,6 +46,16 @@ describe 'Relations Cache', ->
     rels.should.eql []
     done()
 
+  it 'should follow relationship', (done) ->
+    relcache.set 'cs._id', 123, {'users._id': 1, 'stuffs._id': 5}
+    relcache.set 'cs._id', 456, {'users._id': 1, 'stuffs._id': 7}
+
+    rels = relcache.follow 1, 'users._id>cs._id>stuffs._id'
+
+    rels.should.exist
+    rels.should.eql [5, 7]
+    done()
+
   it 'should get multiple fields', (done) ->
     relcache.set 'sessionId', 123, {name: 'Bob', email: 'bob@foo.com', loginCount: 5}
     rels = relcache.get 'sessionId', 123, ['name', 'email']

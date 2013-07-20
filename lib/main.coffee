@@ -47,6 +47,21 @@ class Cache extends EventEmitter
 
     return results
 
+  follow: (key, keypath) ->
+    parts = keypath.split '>'
+    return {} unless parts.length >= 2
+
+    dig = (key, parts...) =>
+      [first, second, rest...] = parts
+      return key unless first? and second?
+
+      relations = @find first, 'in', box(key)
+      target = relations[second]
+      return target if _.isEmpty target
+      return dig target, second, rest...
+
+    dig key, parts...
+
   # ================================================================
   # ADDITION
   # ================================================================
