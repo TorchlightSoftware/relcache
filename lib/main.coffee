@@ -52,12 +52,14 @@ class Cache extends EventEmitter
     return {} unless parts.length >= 2
 
     dig = (key, parts...) =>
+      #logger.grey 'key:'.magenta, key, 'parts:'.magenta, parts
       [first, second, rest...] = parts
       return key unless first? and second?
 
       relations = @find first, 'in', box(key)
       target = relations[second]
-      return target if _.isEmpty target
+      #logger.grey 'relations:'.yellow, relations, 'target:'.yellow, target
+      return [] if _.isEmpty target
       return dig target, second, rest...
 
     dig key, parts...

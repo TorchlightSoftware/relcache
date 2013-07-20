@@ -56,6 +56,28 @@ describe 'Relations Cache', ->
     rels.should.eql [5, 7]
     done()
 
+  it 'should follow deep relationship', (done) ->
+    relcache.set 'stuffs._id', 1, {'stuffs.stuff': ['foo', 'bar']}
+    relcache.set 'stuffs._id', 2, {'stuffs.stuff': ['baz']}
+
+    relcache.set 'users._id', 1, {'users.name': 'Bob'}
+    relcache.set 'users._id', 2, {'users.name': 'Jane'}
+
+    relcache.set 'userstuffs._id', 1, {'users._id': 1, 'stuffs._id': 1}
+    relcache.set 'userstuffs._id', 2, {'users._id': 1, 'stuffs._id': 2}
+    relcache.set 'userstuffs._id', 3, {'users._id': 2, 'stuffs._id': 2}
+
+    bobstuff = relcache.follow 'Bob', 'users.name>users._id>userstuffs._id>stuffs._id>stuffs.stuff'
+
+    bobstuff.should.exist
+    bobstuff.should.eql ['foo', 'bar', 'baz']
+
+    janestuff = relcache.follow 'Jane', 'users.name>users._id>userstuffs._id>stuffs._id>stuffs.stuff'
+
+    janestuff.should.exist
+    janestuff.should.eql ['baz']
+    done()
+
   it 'should get multiple fields', (done) ->
     relcache.set 'sessionId', 123, {name: 'Bob', email: 'bob@foo.com', loginCount: 5}
     rels = relcache.get 'sessionId', 123, ['name', 'email']
