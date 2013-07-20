@@ -71,6 +71,24 @@ describe 'Find Comparison', ->
       ]
       query: ['arr', 'all', ['1', '2']]
       expected: {_id: [3]}
+    ,
+      description: 'in should work'
+      cache: [
+        ['count', 5, {_id: 3}]
+        ['count', 0, {_id: 4}]
+        ['count', 1, {_id: 5}]
+      ]
+      query: ['count', 'in', [1, 2, 5]]
+      expected: {_id: [5, 3]}
+    ,
+      description: 'nin should work'
+      cache: [
+        ['count', 5, {_id: 3}]
+        ['count', 0, {_id: 4}]
+        ['count', 1, {_id: 5}]
+      ]
+      query: ['count', 'nin', [1, 2, 5]]
+      expected: {_id: [4]}
   ]
 
   for test in tests

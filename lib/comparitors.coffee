@@ -28,8 +28,8 @@ module.exports =
     return true
 
   in: (left, right) ->
-    left in right
+    left in right.map (i) -> i.toString()
 
   nin: (left, right) ->
-    left not in right
+    left not in right.map (i) -> i.toString()
 
