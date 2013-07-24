@@ -29,7 +29,6 @@ class Cache extends EventEmitter
 
     rels = @_cache[key]?[value] or {}
     if _.isArray names
-      names = box names
       return _.pick rels, names...
     else if names?
       return rels[names]
