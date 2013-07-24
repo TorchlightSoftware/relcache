@@ -1,5 +1,6 @@
 should = require 'should'
 logger = require 'ale'
+{sample} = require 'torch'
 
 Relcache = require '..'
 relcache = new Relcache
@@ -236,14 +237,16 @@ describe 'Relations Cache', ->
     done()
 
   it 'set should emit two add events', (done) ->
-    relcache.once 'add', ({key, value, relation}) ->
+    relcache.once 'change', ({op, key, value, relation}) ->
+      op.should.eql 'add'
       key.should.eql 'sessionId'
       value.should.eql 123
       relation.should.eql {accountId: 456}
       current = relcache.get key, value
       current.should.eql relation
 
-      relcache.once 'add', ({key, value, relation}) ->
+      relcache.once 'change', ({op, key, value, relation}) ->
+        op.should.eql 'add'
         key.should.eql 'accountId'
         value.should.eql 456
         relation.should.eql {sessionId: 123}
@@ -255,41 +258,55 @@ describe 'Relations Cache', ->
     relcache.set 'sessionId', 123, {accountId: 456}
 
   it 'should emit two remove events', (done) ->
-    relcache.once 'remove', ({key, value, targets}) ->
-      key.should.eql 'accountId'
-      value.should.eql 456
-      targets.should.eql {sessionId: 123}
-      current = relcache.get key, value
-      current.should.eql {sessionId: [123]}
 
-      relcache.once 'remove', ({key, value, targets}) ->
-        key.should.eql 'sessionId'
-        value.should.eql 123
-        targets.should.eql {accountId: 456}
+    # wait for add events to pass
+    sample relcache, 'change', 2, ->
+
+      # listen for remove events
+      relcache.once 'change', ({op, key, value, relation}) ->
+        op.should.eql 'remove'
+        key.should.eql 'accountId'
+        value.should.eql 456
+        relation.should.eql {sessionId: 123}
         current = relcache.get key, value
-        current.should.eql {accountId: 456}
+        current.should.eql {sessionId: [123]}
 
-        done()
+        relcache.once 'change', ({op, key, value, relation}) ->
+          op.should.eql 'remove'
+          key.should.eql 'sessionId'
+          value.should.eql 123
+          relation.should.eql {accountId: 456}
+          current = relcache.get key, value
+          current.should.eql {accountId: 456}
+
+          done()
 
     relcache.set 'sessionId', 123, {accountId: 456}
     relcache.unset 'sessionId', 123
 
   it 'remove should emit two unset events', (done) ->
-    relcache.once 'remove', ({key, value, targets}) ->
-      key.should.eql 'sessionId'
-      value.should.eql [789]
-      targets.should.eql {accountId: 123}
-      current = relcache.get key, value
-      current.should.eql {accountId: [123]}
 
-      relcache.once 'remove', ({key, value, targets}) ->
-        key.should.eql 'accountId'
-        value.should.eql 123
-        targets.should.eql {sessionId: 789}
+    # wait for add events to pass
+    sample relcache, 'change', 2, ->
+
+      # listen for remove events
+      relcache.once 'change', ({op, key, value, relation}) ->
+        op.should.eql 'remove'
+        key.should.eql 'sessionId'
+        value.should.eql [789]
+        relation.should.eql {accountId: 123}
         current = relcache.get key, value
-        current.should.eql {sessionId: [789]}
+        current.should.eql {accountId: [123]}
 
-      done()
+        relcache.once 'change', ({op, key, value, relation}) ->
+          op.should.eql 'remove'
+          key.should.eql 'accountId'
+          value.should.eql 123
+          relation.should.eql {sessionId: 789}
+          current = relcache.get key, value
+          current.should.eql {sessionId: [789]}
+
+          done()
 
     relcache.add 'accountId', 123, {sessionId: 789}
     relcache.remove 'accountId', 123, {sessionId: 789}

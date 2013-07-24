@@ -94,7 +94,7 @@ class Cache extends EventEmitter
     @_cache[key][value] ?= {}
 
     method @_cache[key][value], relation
-    @emit 'add', {key, value, relation}
+    @emit 'change', {op: 'add', key, value, relation}
 
   # ================================================================
   # REMOVAL
@@ -141,7 +141,7 @@ class Cache extends EventEmitter
     targets ?= relation
 
     if relation?
-      @emit 'remove', {key, value, targets}
+      @emit 'change', {op: 'remove', key, value, relation: targets}
       method relation, targets
 
       if _.isEmpty relation
