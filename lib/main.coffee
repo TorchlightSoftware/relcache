@@ -7,8 +7,9 @@ comparitors = require './comparitors'
 
 class Cache extends EventEmitter
 
-  _cache: {}
-  _holdQueue: []
+  constructor: ->
+    @_cache = {}
+    @_holdQueue = []
 
   # ================================================================
   # UTILITY
