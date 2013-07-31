@@ -237,27 +237,38 @@ describe 'Relations Cache', ->
     done()
 
   it 'set should emit two add events', (done) ->
+    checkValues = ->
+      accIds = relcache.get 'sessionId', 123
+      accIds.should.eql {accountId: 456}
+
+      sessIds = relcache.get 'accountId', 456
+      sessIds.should.eql {sessionId: [123]}
+
     relcache.once 'change', ({op, key, value, relation}) ->
       op.should.eql 'add'
       key.should.eql 'sessionId'
       value.should.eql 123
       relation.should.eql {accountId: 456}
-      current = relcache.get key, value
-      current.should.eql relation
+      checkValues()
 
       relcache.once 'change', ({op, key, value, relation}) ->
         op.should.eql 'add'
         key.should.eql 'accountId'
         value.should.eql 456
         relation.should.eql {sessionId: 123}
-        current = relcache.get key, value
-        current.should.eql {sessionId: [123]}
+        checkValues()
 
         done()
 
     relcache.set 'sessionId', 123, {accountId: 456}
 
   it 'should emit two remove events', (done) ->
+    checkValues = ->
+      accIds = relcache.get 'sessionId', 123
+      accIds.should.eql {accountId: 456}
+
+      sessIds = relcache.get 'accountId', 456
+      sessIds.should.eql {sessionId: [123]}
 
     # wait for add events to pass
     sample relcache, 'change', 2, ->
@@ -268,16 +279,14 @@ describe 'Relations Cache', ->
         key.should.eql 'accountId'
         value.should.eql 456
         relation.should.eql {sessionId: 123}
-        current = relcache.get key, value
-        current.should.eql {sessionId: [123]}
+        checkValues()
 
         relcache.once 'change', ({op, key, value, relation}) ->
           op.should.eql 'remove'
           key.should.eql 'sessionId'
           value.should.eql 123
           relation.should.eql {accountId: 456}
-          current = relcache.get key, value
-          current.should.eql {accountId: 456}
+          checkValues()
 
           done()
 
@@ -285,6 +294,12 @@ describe 'Relations Cache', ->
     relcache.unset 'sessionId', 123
 
   it 'remove should emit two unset events', (done) ->
+    checkValues = ->
+      accIds = relcache.get 'sessionId', 789
+      accIds.should.eql {accountId: [123]}
+
+      sessIds = relcache.get 'accountId', 123
+      sessIds.should.eql {sessionId: [789]}
 
     # wait for add events to pass
     sample relcache, 'change', 2, ->
@@ -295,16 +310,14 @@ describe 'Relations Cache', ->
         key.should.eql 'sessionId'
         value.should.eql [789]
         relation.should.eql {accountId: 123}
-        current = relcache.get key, value
-        current.should.eql {accountId: [123]}
+        checkValues()
 
         relcache.once 'change', ({op, key, value, relation}) ->
           op.should.eql 'remove'
           key.should.eql 'accountId'
           value.should.eql 123
           relation.should.eql {sessionId: 789}
-          current = relcache.get key, value
-          current.should.eql {sessionId: [789]}
+          checkValues()
 
           done()
 

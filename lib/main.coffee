@@ -8,6 +8,7 @@ comparitors = require './comparitors'
 class Cache extends EventEmitter
 
   _cache: {}
+  _holdQueue: []
 
   # ================================================================
   # UTILITY
@@ -18,6 +19,17 @@ class Cache extends EventEmitter
 
   clear: ->
     @_cache = {}
+
+  # hold/release are used to synchronize changes with notifications
+  # add happens before notification, remove happens after
+  _hold: (cmd...) ->
+    @_holdQueue.push cmd
+
+  _release: ->
+    for cmd in @_holdQueue
+      [fn, args...] = cmd
+      fn.apply @, args
+    @_holdQueue = []
 
   # ================================================================
   # QUERY
@@ -79,11 +91,15 @@ class Cache extends EventEmitter
     for k, v of relation
       @_adder k, v, kvp(key, value), @_add
 
+    @_release()
+
   add: (key, value, relation) ->
     @_adder key, value, relation, @_add
 
     for k, v of relation
       @_adder k, v, kvp(key, value), @_add
+
+    @_release()
 
   _add: _.partialRight _.merge, (l, r) ->
     _.union box(l), box(r)
@@ -93,7 +109,7 @@ class Cache extends EventEmitter
     @_cache[key][value] ?= {}
 
     method @_cache[key][value], relation
-    @emit 'change', {op: 'add', key, value, relation}
+    @_hold @emit, 'change', {op: 'add', key, value, relation}
 
   # ================================================================
   # REMOVAL
@@ -107,16 +123,22 @@ class Cache extends EventEmitter
 
     rels = @get key, value, targets
     for k, v of rels
-      @_remover k, v, kvp(key, value), @_remove
+      reverse = kvp(key, value)
+      @_remover k, v, reverse, @_remove
 
     @_remover key, value, tObj, @_unset
+
+    @_release()
 
   remove: (key, value, targets) ->
     rels = @get key, value, _.keys(targets)
     for k, v of rels
-      @_remover k, v, kvp(key, value), @_remove
+      reverse = kvp(key, value)
+      @_remover k, v, reverse, @_remove
 
     @_remover key, value, targets, @_remove
+
+    @_release()
 
   _toObjKeys: (list) ->
     if _.isArray list
@@ -141,7 +163,7 @@ class Cache extends EventEmitter
 
     if relation?
       @emit 'change', {op: 'remove', key, value, relation: targets}
-      method relation, targets
+      @_hold method, relation, targets
 
       if _.isEmpty relation
         delete @_cache[key][value]
