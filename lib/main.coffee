@@ -1,7 +1,7 @@
 {EventEmitter} = require 'events'
-{getType, box, kvp} = require 'torch'
+{getType, box, kvp} = require 'ale'
 _ = require 'lodash'
-logger = require 'ale'
+logger = require 'torch'
 
 comparitors = require './comparitors'
 

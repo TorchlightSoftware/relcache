@@ -1,5 +1,4 @@
 _ = require 'lodash'
-logger = require 'ale'
 
 module.exports =
 
@@ -32,4 +31,3 @@ module.exports =
 
   nin: (left, right) ->
     left not in right.map (i) -> i.toString()
-

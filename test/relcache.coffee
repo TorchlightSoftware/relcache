@@ -1,6 +1,6 @@
 should = require 'should'
-logger = require 'ale'
-{sample} = require 'torch'
+logger = require 'torch'
+{sample} = require 'ale'
 
 Relcache = require '..'
 relcache = new Relcache
