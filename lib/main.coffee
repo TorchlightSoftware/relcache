@@ -163,8 +163,8 @@ class Cache extends EventEmitter
     targets ?= relation
 
     if relation?
-      @emit 'change', {op: 'remove', key, value, relation: targets}
-      @_hold method, relation, targets
+      @_hold @emit, 'change', {op: 'remove', key, value, relation: _.clone targets}
+      method relation, targets
 
       if _.isEmpty relation
         delete @_cache[key][value]

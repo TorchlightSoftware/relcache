@@ -265,10 +265,10 @@ describe 'Relations Cache', ->
   it 'should emit two remove events', (done) ->
     checkValues = ->
       accIds = relcache.get 'sessionId', 123
-      accIds.should.eql {accountId: 456}
+      accIds.should.eql {}
 
       sessIds = relcache.get 'accountId', 456
-      sessIds.should.eql {sessionId: [123]}
+      sessIds.should.eql {}
 
     # wait for add events to pass
     sample relcache, 'change', 2, ->
@@ -296,10 +296,10 @@ describe 'Relations Cache', ->
   it 'remove should emit two unset events', (done) ->
     checkValues = ->
       accIds = relcache.get 'sessionId', 789
-      accIds.should.eql {accountId: [123]}
+      accIds.should.eql {}
 
       sessIds = relcache.get 'accountId', 123
-      sessIds.should.eql {sessionId: [789]}
+      sessIds.should.eql {}
 
     # wait for add events to pass
     sample relcache, 'change', 2, ->
